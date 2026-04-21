@@ -1,0 +1,138 @@
+//GLOBAL DEVELOPMENT VARIABLES FOR TESTING PURPOSE
+const script_properties=PropertiesService.getScriptProperties()
+const APP_ID_dev = script_properties.getProperty("APP_ID_dev")
+const APP_ACCESS_KEY_dev = script_properties.getProperty("APP_ACCESS_KEY_dev")
+const APPSHEET_REGION_dev = script_properties.getProperty("APPSHEET_REGION_dev") // www.appsheet.com (global)
+const template_doc_id_dev = script_properties.getProperty("template_doc_id_dev") // your template doc_id
+const structure_ss_id_dev = script_properties.getProperty("structure_ss_id_dev")// your app structure spreadsheet ss_structure_id
+const folder_id_dev = script_properties.getProperty("folder_id_dev")// your folder to store generated files in
+const app_structure_docId_dev=script_properties.getProperty("app_structure_docId_dev")//txt file ID that contains app json structure
+const app_documentation_html_docId_dev=script_properties.getProperty("app_documentation_html_docId_dev")//html file ID that contains app documentation under HTML format
+
+const app_json_url_endpoint_dev="https://www.appsheet.com/api/v2/apps/"+APP_ID_dev+"/openapi.json"
+const app_documentation_url="https://www.appsheet.com/template/appdoc?appId=e"+APP_ID_dev
+
+
+const json_data_structure_dev = {
+  "item": {
+    "id":             { "type": "key"                              },
+    "Related entrys": { "type": "ref_list", "source": "entry"      },
+    "category":       { "type": "ref",      "source": "category"   },
+    "Related owners": { "type": "ref_list", "source": "owner"      },
+    "image":          { "type": "image"                            }
+  },
+  "category": {
+    "id":             { "type": "key"                              },
+    "location":       { "type": "ref",      "source": "location"   }
+  },
+  "entry": {
+    "id":             { "type": "key"                              },
+    "item":           { "type": "ref",      "source": "item"       },
+    "image_entry":    { "type": "image"                            }
+  },
+  "location": {
+    "id":             { "type": "key"                              }
+  },
+  "owner": {
+    "id":             { "type": "key"                              },
+    "item":           { "type": "ref",      "source": "item"       }
+  }
+}// const json_data_structure_dev = {
+
+const json_placeholdersFromDoc_dev = {
+    "Related entrys": {      "id": {},      "timestamp": {},      "image_entry": {},      "amount": {}    },
+    "Related owners": {      "id": {},      "address": {}    },
+    "category": {
+      "label_category": {},
+      "location": {        "label_location": {}      }
+    },
+    "_sumEntry": {},
+    "_RowNumber": {},
+    "id": {},
+    "label": {},
+    "price": {},
+    "image": {}
+}//const json_placeholdersFromDoc_dev = {
+
+const json_rowDataFromAppSheet_dev={
+  "_RowNumber": "4",
+  "id": "item_id_3",
+  "label": "hammer",
+  "category": "tool",
+  "price": "3",
+  "trigger_script": "8",
+  "image": "item_Images/item_id_3.iimage.090333.png",
+  "Related entrys": "b93caaff , 7fef709d , 6df5b473",
+  "_sumEntry": "108",
+  "Related owners": ""
+}
+
+const o_mergedData_dev={
+  "_RowNumber": "4",
+  "id": "item_id_3",
+  "label": "hammer",
+  "category": {
+    "_RowNumber": "4",
+    "id": "tool",
+    "label_category": "tool",
+    "location": {
+      "_RowNumber": "4",
+      "id": "C",
+      "label_location": "Paris",
+      "Related categorys": "tool"
+    }
+  },
+  "price": "3",
+  "trigger_script": "8",
+  "image": "item_Images/item_id_3.iimage.090333.png",
+  "Related entrys": [
+    {
+      "_RowNumber": "4",
+      "id": "b93caaff",
+      "timestamp": "09/16/2025 10:54:12",
+      "item": "item_id_3",
+      "amount": "4",
+      "image_entry": "entry_Images/b93caaff.image.133830.png"
+    },
+    {
+      "_RowNumber": "5",
+      "id": "7fef709d",
+      "timestamp": "09/16/2025 11:03:22",
+      "item": "item_id_3",
+      "amount": "5",
+      "image_entry": "entry_Images/7fef709d.image.133840.png"
+    },
+    {
+      "_RowNumber": "8",
+      "id": "6df5b473",
+      "timestamp": "11/03/2025 10:28:44",
+      "item": "item_id_3",
+      "amount": "99",
+      "image_entry": "entry_Images/6df5b473.image.133858.png"
+    }
+  ],
+  "_sumEntry": "108",
+  "Related owners": [
+    {
+      "_RowNumber": "4",
+      "id": "owner_id_3",
+      "label": "Owner 3",
+      "address": "Paris",
+      "item": "item_id_3"
+    },
+    {
+      "_RowNumber": "7",
+      "id": "owner_id_6",
+      "label": "Owner 6",
+      "address": "Nantes",
+      "item": "item_id_3"
+    },
+    {
+      "_RowNumber": "10",
+      "id": "owner_id_9",
+      "label": "Owner 9",
+      "address": "Lille",
+      "item": "item_id_3"
+    }
+  ]
+}//o_mergedData_dev
