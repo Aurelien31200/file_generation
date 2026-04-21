@@ -1,0 +1,13 @@
+function getFileAppStructure(app_structure_docId) {
+//reminder
+//Logger.log ("app_json_url_endpoint_dev: " + app_json_url_endpoint_dev)
+
+  const app_structure_file = DriveApp.getFileById(app_structure_docId)
+
+  const app_structure_content = app_structure_file.getBlob().getDataAsString()
+  const o_app_structure = JSON.parse(app_structure_content)
+
+  return o_app_structure
+
+
+}//function getFileAppStructure() {
