@@ -13,7 +13,22 @@ const SIMPLE_BRACKET_REGEX_g = /<<\[(.*?)\]>>/g;//matches [property] syntax (dis
 const PLACEHOLDER_REGEX_g = /<<(.+?)>>/g;//matches [] syntax (disregarding any ref or deref)
 const START_END_REGEX_gi = /<<Start:\s*(.*?)>>([\s\S]*?)<<End>>/gi;
 
-
+/**
+ * main function to be called by AppSheet bot.
+ * Purpose : create a Google Docs or PDF file in a given folder
+ * 
+ * @APP_ID: the App Id, to be found under Settings > Integrations
+ * @APP_ACCESS_KEY: the App Access Key, to be found under Settings > Integrations
+ * @APPSHEET_REGION: the AppSheet Region to use, to be found on AppSheet Documention https://support.google.com/appsheet/answer/10104497?sjid=14132292611766206821-EU
+ * @row_id: the current row id from AppSheet
+ * @tableName: the current table to run the script against
+ * @template_doc_id: the template Google Docs to use, to build accordingly to usual AppSheet naming convention
+ * @structure_ss_id; the Google Sheets document that details list of table with specific columns to focus on: keys, image, ref - and its source table if so
+ * @folder_id: the folder that contains the document to generate
+ * @imageSize: the basic size to apply to image: tiny, small, high
+ * @b_pdf: a boolean to set to TRUE if pdf expected. Otherwise, will generate a Google Docs document
+ * 
+ */
 function main_call_template(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, row_id, tableName, template_doc_id, structure_ss_id, folder_id, imageSize, b_pdf) {
 
   //get data structure
