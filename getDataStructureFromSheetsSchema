@@ -1,0 +1,71 @@
+/**
+ * Get the database structure of the table according to the spreadsheet information
+ * spreadsheet must contain column, type ("key" , "ref", or "ref_list"), and source if type "ref" or "ref_list"
+ * 
+ * Example of expected output of the function: 
+  {
+  "item":   [
+    {      "column": "id",      "type": "key"    },
+    {      "column": "Related entrys",      "type": "ref_list",      "source": "entry"    },
+    {      "column": "category",      "type": "ref",      "source": "category"    }
+  ],
+  "category": [
+    {      "column": "id",      "type": "key"    }
+  ],
+  "entry": [
+    {      "column": "id",      "type": "key"    },
+    {      "column": "item",      "type": "ref",      "source": "item"    }
+  ]
+  }
+ */
+function getDataStructureFromSheetsSchema(structure_ss_id) {
+
+  try {
+    const ss = SpreadsheetApp.openById(structure_ss_id);
+    const sh = ss.getSheets()[0]; // get first sheet
+    const a_values = sh.getDataRange().getValues();
+    const headers = a_values[0];//get headers
+    const a_dataRows = a_values.slice(1); // get data
+    //Logger.log (JSON.stringify(a_dataRows, null,2))
+
+    let jsonOutput = {};
+    for (let i = 0; i < a_dataRows.length; i++) {
+      const tableName = a_dataRows[i][0];    // ex: "item"
+      const columnName = a_dataRows[i][1];   // ex: "Related entrys"
+      const columnType = a_dataRows[i][2];   // ex: "ref_list"
+      const columnSource = a_dataRows[i][3]; // ex: "entry" (might be empty)
+
+      if (!jsonOutput[tableName]) { jsonOutput[tableName] = {} }
+
+      jsonOutput[tableName][columnName] = { "type": columnType };
+      columnSource && (jsonOutput[tableName][columnName].source = columnSource);
+    }//for (let i = 0; i < a_dataRows.length; i++) {
+      return jsonOutput;
+
+    } catch (e) {
+      Logger.log("Error opening spreadsheet or processing data: " + e.message);
+      return null;
+    }
+  }//function getDbStructureFromSheetsSchema() {
+
+/**
+* Transforms a 2D schema array into a nested JSON object structure.
+*
+* @param {Array<Array<string>>} a_dataRows - The source 2D array.
+* @returns {Object} - The resulting nested object.
+*/
+function dataRowsToJson(a_dataRows) {
+    let jsonOutput = {};
+    for (let i = 0; i < a_dataRows.length; i++) {
+      const tableName = a_dataRows[i][0];    // ex: "item"
+      const columnName = a_dataRows[i][1];   // ex: "Related entrys"
+      const columnType = a_dataRows[i][2];   // ex: "ref_list"
+      const columnSource = a_dataRows[i][3]; // ex: "entry" (might be empty)
+
+      if (!jsonOutput[tableName]) { jsonOutput[tableName] = {} }
+
+      jsonOutput[tableName][columnName] = { "type": columnType };
+      columnSource && (jsonOutput[tableName][columnName].source = columnSource);
+    }//for (let i = 0; i < a_dataRows.length; i++) {
+    return jsonOutput;
+  }//function dataRowsToJson(a_dataRows) {
