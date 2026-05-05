@@ -1,0 +1,19 @@
+/**
+ * Basic call for dereference lists
+ * 
+ */
+
+function getRefListDataFromAppSheet(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, table, a_refList_id, json_data_structure) {
+  Logger.log("Starting getRefListDataFromAppSheet ...")
+
+  //convert list of ref_id into AppSheet expression LIST() ==> LIST("id1", "id2", ...)
+  const refListExpression="LIST(" + a_refList_id.map(id => `"${id}"`).join(", ") + ")"
+
+  const text_selector = 'FILTER("' + table + '",IN([' + getKeyColumnForTable(json_data_structure, table) + '],' + refListExpression + '))'
+  Logger.log("text_selector:  " + text_selector)
+  const a_rawDataAppSheet = appsheetAPI_find(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, table, text_selector);
+
+  //Logger.log("a_rawDataAppSheet: " + JSON.stringify(a_rawDataAppSheet, null, 2))
+  return a_rawDataAppSheet;
+
+}//function getRawDataFromAppSheet(docId) {
