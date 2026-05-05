@@ -1,0 +1,40 @@
+/**
+ * get raw data from appsheet according to a tableName, a row_id, and the json_table_structure.
+ * Basically  performing a FIND request to AppSheet API, so all related information from the row_id record are retrieved, including both real and virtual columns.
+ * 
+ * expected output: json response from the AppSheet API call
+ */
+function getRowDataFromAppSheet(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, tableName, row_id, json_data_structure) {
+  Logger.log("Starting getRowDataFromAppSheet ...")
+
+  // get raw data object from AppSheet
+  const text_selector = "FILTER('" + tableName + "',[" + getKeyColumnForTable(json_data_structure, tableName) + "]='" + row_id + "')" //ex: "FILTER('item',[item_id]="123")"
+  const json_rowDataFromAppSheet = appsheetAPI_find(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, tableName, text_selector)[0];//return json - first item from object
+  return json_rowDataFromAppSheet;
+
+}//function getRowDataFromAppSheet(docId) {
+
+/**
+ * get key column name from the table name and the json_table_structure
+ */
+
+function getKeyColumnForTable(json_structure, tableName) {
+  if (json_structure.hasOwnProperty(tableName)) {
+
+    let json_table_structure = json_structure[tableName];
+
+    for (let columnName in json_table_structure) {
+      const columnDefinition = json_table_structure[columnName];
+      if (columnDefinition.type === "key"){
+        return columnName; // Return the column name
+      }
+    }
+    // If the table exists but no "key" type is found
+    Logger.log("Table '" + tableName + "' found in structure, but no column of type 'key' was defined.");
+    return null;
+  } else {
+    // If the tableName does not exist in the json_structure
+    Logger.log("Table '" + tableName + "' not found in the provided JSON structure.");
+    return null;
+  }
+}//function getKeyColumnForTable(json_structure, tableName) {
