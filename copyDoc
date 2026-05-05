@@ -1,0 +1,50 @@
+function copyDoc(docId, folder_id) {
+  Logger.log("Starting copyDoc(docId) ...")
+
+  // 1. Configuration
+  var subfolderName = 'Generated Documents';       // Name of the subfolder to create/use
+  let sourceDocName=DriveApp.getFileById(docId).getName()
+  var newDocName = 'Copy of '+ sourceDocName+ ' - ' + Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd\' \'HH:mm:ss\' \''); // Name for the new document
+
+  // 3. Get the template file from Google Drive
+  var templateFile = DriveApp.getFileById(docId);
+  
+  //declare target folder for copied doc
+  var targetSubfolder = null;
+
+  // 4. Get the parent folder of the template document
+  // A file can have multiple parents, but getParents() returns an iterator.
+  // We'll take the first parent as the base folder.
+  if (!folder_id || folder_id=="") {
+    var parentFolders = templateFile.getParents();
+    var baseFolder;
+
+    if (parentFolders.hasNext()) {
+      baseFolder = parentFolders.next();
+    } else {
+      // If the document is in My Drive root and has no specific parent,
+      // get My Drive root.
+      baseFolder = DriveApp.getRootFolder();
+      console.warn("Template document has no explicit parent folder. Using My Drive root as base.");
+    }
+    
+    // 5. Check if the target subfolder exists within the baseFolder, if not, create it
+    var subfolders = baseFolder.getFoldersByName(subfolderName);
+
+    if (subfolders.hasNext()) {// Subfolder already exists      
+      targetSubfolder = subfolders.next();
+      
+    } else {// Subfolder does not exist, create it      
+      targetSubfolder = baseFolder.createFolder(subfolderName);
+      
+    }
+  } else {
+    targetSubfolder = DriveApp.getFolderById(folder_id)
+  }
+
+  // 6. Make a copy of the template file into the target subfolder
+  const newFile = templateFile.makeCopy(newDocName, targetSubfolder);
+
+  return newFile.getId(); // Return the ID of the new document if needed
+
+}//function copyDoc(docId) {
