@@ -1,0 +1,78 @@
+/**
+ * Recursively fetches relational data (ref and ref_list) based on the depth defined in json_placeholdersFromDoc.
+ * 
+ * @param {object} o_rowDataAppSheet The raw data from AppSheet.
+ * @param {object} json_placeholdersFromDoc An object defining placeholder types and sources.
+ * @param {object} json_data_structure The database structure definition.
+ * @returns {object} An object containing the results from getRelatedRawDataFromAppSheet for each processed ref_list placeholder.
+ * 
+ */
+function getRefDataFromAppSheet(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, o_rowDataAppSheet, json_placeholdersFromDoc, json_data_structure, tableName) {
+
+  const o_result = {};
+  const json_table_structure = json_data_structure[tableName];
+
+  if (!json_table_structure) {
+    Logger.log("Table " + tableName + " not found in structure.");
+    return o_result;
+  }
+
+  for (const key in json_placeholdersFromDoc) {
+    const o_placeholderSchema = json_table_structure[key];
+    
+    // If this key isn't in our database structure, skip it
+    if (!o_placeholderSchema) continue;
+
+    // Check if there are deeper levels to fetch for this specific key
+    const nestedPlaceholders = json_placeholdersFromDoc[key];
+    const hasDepth = Object.keys(nestedPlaceholders).length > 0;
+
+    if (o_placeholderSchema.type === "ref_list") {// stated as ref-list type
+      try {
+        const tableSource = o_placeholderSchema.source;
+        const rawIds = o_rowDataAppSheet[key];
+        if (!rawIds) continue;
+        const a_ids = String(rawIds).split(',').map(id => id.trim());//convert "appsheet text-list" format into array
+        
+        let a_relatedRows = getRefListDataFromAppSheet(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, tableSource, a_ids, json_data_structure);
+
+        if (hasDepth && a_relatedRows && a_relatedRows.length > 0) {
+          a_relatedRows = a_relatedRows.map(row => {
+            // Call self for each row in the list
+            const deepData = getRefDataFromAppSheet(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, row, nestedPlaceholders, json_data_structure, tableSource);
+            // Merge the deep data back into the row object
+            return Object.assign(row, deepData);
+          });
+        }
+        o_result[key] = a_relatedRows;
+
+      } catch (e) {
+        Logger.log("Error in ref_list recursion for " + key + ": " + e.toString());
+      }
+    }//if (o_placeholderSchema.type === "ref_list") {
+
+    else if (o_placeholderSchema.type === "ref") {// stated as ref type
+      try {
+        const tableSource = o_placeholderSchema.source;
+        const ref_id = o_rowDataAppSheet[key];
+        if (!ref_id) continue;
+
+        // Fetch the single related row
+        let o_relatedRow = getRowDataFromAppSheet(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, tableSource, ref_id, json_data_structure);
+
+        // RECURSION: If the doc asks for more depth inside this single row
+        if (hasDepth && o_relatedRow) {
+          const deepData = getRefDataFromAppSheet(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, o_relatedRow, nestedPlaceholders, json_data_structure, tableSource);
+          // Merge the deep data back into the row object
+          Object.assign(o_relatedRow, deepData);
+        }
+        o_result[key] = o_relatedRow;
+
+      } catch (e) {
+        Logger.log("Error in ref recursion for " + key + ": " + e.toString());
+      }
+    }//else if (o_placeholderSchema.type === "ref") {
+  }//for (const key in json_placeholdersFromDoc) {
+
+  return o_result;
+}//function getRefDataFromAppSheet(APP_ID, APP_ACCESS_KEY, APPSHEET_REGION, o_rowDataAppSheet, json_placeholdersFromDoc, json_data_structure, tableName) {
