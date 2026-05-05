@@ -1,0 +1,20 @@
+/**
+ * Merging datasets according to parent properties.
+ */
+
+
+function mergeRowRefData(o_rowDataAppSheet, o_refDataFromAppSheet) {
+
+  //create a copy (not modifying the original)
+  let mergedData = JSON.parse(JSON.stringify(o_rowDataAppSheet));
+
+  // Iterate over each key in relatedData
+  for (var key in o_refDataFromAppSheet) {
+    if (o_refDataFromAppSheet.hasOwnProperty(key)) {
+      mergedData[key] = o_refDataFromAppSheet[key];
+    }
+  }//for (var key in o_refDataFromAppSheet) {
+
+  return mergedData
+
+}//function mergeMainWithRelated(rawDataAppSheet, refDataFromAppSheet){ 
