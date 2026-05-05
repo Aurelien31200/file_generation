@@ -1,0 +1,260 @@
+function replacePlaceholdersInDoc(docId, o_mergedData, json_structure, tableName, imageSize) {
+  const doc = DocumentApp.openById(docId);
+  const body = doc.getBody();
+
+  // 1. Process Loops (Table rows) first
+  processLoops(body, o_mergedData, json_structure, tableName, imageSize);
+
+  // 2. Process all remaining placeholders recursively
+  processContainer(body, o_mergedData, json_structure, tableName, imageSize);
+
+  doc.saveAndClose();
+}
+
+/**
+ * RECURSIVE WALKER
+ */
+function processContainer(container, data, structure, tableContext, imageSize) {
+  const numChildren = container.getNumChildren();
+
+  // Iterate backwards when modifying children to avoid index shifting
+  for (let i = numChildren - 1; i >= 0; i--) {
+    const child = container.getChild(i);
+    const type = child.getType();
+
+    if (type === DocumentApp.ElementType.PARAGRAPH || type === DocumentApp.ElementType.LIST_ITEM) {
+      // Pass the element (Paragraph/ListItem) to the tag processor
+      processElementTags(child, data, structure, tableContext, imageSize);
+    }
+    else if (type === DocumentApp.ElementType.TABLE) {
+      const table = child.asTable();
+      for (let r = 0; r < table.getNumRows(); r++) {
+        const row = table.getRow(r);
+        for (let c = 0; c < row.getNumCells(); c++) {
+          processContainer(row.getCell(c), data, structure, tableContext, imageSize);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * ELEMENT TAG PROCESSOR
+ * Specifically handles the branch between Text and Blobs
+ */
+function processElementTags(element, data, structure, tableContext, imageSize) {
+  const textObj = element.asText();
+  const textContent = textObj.getText();
+  const matches = [...textContent.matchAll(REGEX.ANY_TAG)];
+
+  // Process tags in the element
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const match = matches[i];
+    const fullTag = match[0];
+    const innerContent = match[1];
+
+    const value = resolveValue(innerContent, data, structure, tableContext);
+
+    if (isBlob(value)) {
+      /**
+       * IMAGE HANDLING
+       */
+      element.clear();
+      const inlineImage = element.appendInlineImage(value);
+
+      /**
+       * RESIZING HANDLING
+       */
+      try {
+        // 1. Find the Body element to access page dimensions
+        let parent = element.getParent();
+        while (parent && parent.getType() !== DocumentApp.ElementType.BODY_SECTION) {
+          parent = parent.getParent();
+        }
+        const currentImgWidth = inlineImage.getWidth();
+        const currentImgHeight = inlineImage.getHeight();
+        const aspectRatio = currentImgHeight / currentImgWidth;
+        let maxWidth, newHeight
+
+        if (parent) {
+          switch (imageSize) {
+            case "tiny":
+              maxWidth = 30;
+              newHeight = maxWidth * aspectRatio;
+              inlineImage.setWidth(maxWidth)
+              inlineImage.setHeight(Math.round(newHeight));
+              break;
+
+            case "small":
+              maxWidth = 100;
+              newHeight = maxWidth * aspectRatio;
+              inlineImage.setWidth(maxWidth)
+              inlineImage.setHeight(Math.round(newHeight));
+              break;
+
+            case "high":
+
+              const body = parent.asBody();
+              // 2. Calculate available printable width (Note: GAS cannot get exact table cell widths. We constrain to page bounds and rely on Docs to visually shrink it further into the cell if needed).
+              const pageWidth = body.getPageWidth() || 612; // Default fallback if undefined (rare)
+              const marginLeft = body.getMarginLeft() || 72;
+              const marginRight = body.getMarginRight() || 72;
+              // Use a 20pt buffer for safety padding
+              maxWidth = pageWidth - marginLeft - marginRight - 20;
+
+              // 3. Resize if necessary, maintaining aspect ratio
+              if (currentImgWidth > maxWidth && maxWidth > 0) {
+                newHeight = maxWidth * aspectRatio;
+                inlineImage.setWidth(maxWidth);
+                // Ensure height is an integer
+                inlineImage.setHeight(Math.round(newHeight));
+              }
+              break;
+
+            default:
+            //do nothing
+
+          }//switch(imageSize){
+
+        }
+      } catch (e) {
+        console.warn("Could not resize image blob: " + e.message);
+        // We don't throw error here, we let the script continue with unresized image if calculation fails.
+      }
+
+      return;
+    }
+    else {
+      /**
+       * TEXT HANDLING
+       */
+      const stringValue = formatValue(value);
+      // Using standard replaceText for performance and style preservation
+      element.replaceText(escapeRegex(fullTag), stringValue);
+    }
+  }
+}//function processElementTags(element, data, structure, tableContext, imageSize) {
+
+/**
+ * VALUE RESOLVER
+ */
+function resolveValue(path, data, structure, startTable) {
+  const parts = [...path.matchAll(REGEX.BRACKETS)].map(m => m[1]);
+  if (parts.length === 0) return "";
+
+  // Handle [list][prop] logic
+  if (path.includes("][")) {
+    const [listKey, propKey] = parts;
+    const list = data[listKey];
+    return Array.isArray(list) ? list.map(item => item[propKey]) : "";
+  }
+
+  // Handle deref/simple logic
+  let derefValueFromData = getDerefValueFromData(data, parts, structure, startTable);
+  return derefValueFromData
+}
+
+/**
+ * TABLE LOOP PROCESSOR
+ */
+function processLoops(body, o_mergedData, json_structure, tableName, imageSize) {
+  const tables = body.getTables();
+
+  tables.forEach(table => {
+    for (let r = table.getNumRows() - 1; r >= 0; r--) {
+      const row = table.getRow(r);
+      const rowText = row.getText();
+      const startMatch = rowText.match(REGEX.START_TAG);
+
+      if (startMatch && REGEX.END_TAG.test(rowText)) {
+        const listKey = startMatch[1];
+        const listData = o_mergedData[listKey] || [];
+
+        listData.forEach((itemData) => {
+          const newRow = table.insertTableRow(r + 1);
+          for (let c = 0; c < row.getNumCells(); c++) {
+            const templateCell = row.getCell(c);
+            const newCell = newRow.appendTableCell(templateCell.copy());
+
+            // Clean markers and process content recursively
+            newCell.replaceText(REGEX.START_TAG.source, "");
+            newCell.replaceText(REGEX.END_TAG.source, "");
+            processContainer(newCell, itemData, json_structure, tableName, imageSize);
+          }
+        });
+        table.removeRow(r);
+      }
+    }
+  });
+}
+
+/**
+ * Navigates an object path and returns the value.
+ * If the result is a nested record (Object), it dynamically finds 
+ * and returns the correct Key column value for that table.
+ * 
+ * @param {Object} o_data - The source record (e.g. o_mergedData).
+ * @param {Array<string>} a_deref_columnNames - The path (e.g. ["category", "location"]).
+ * @param {Object} json_data_structure - The schema definition.
+ * @param {string} tableName - The name of the table o_data belongs to (e.g. "item").
+ * @returns {*} - The primitive value or the dynamic Key value.
+ */
+function getDerefValueFromData(o_data, a_deref_columnNames, json_data_structure, tableName) {
+  let o_currentData = o_data;
+  let currentTable = tableName;
+
+  for (let i = 0; i < a_deref_columnNames.length; i++) {
+    const property = a_deref_columnNames[i];
+
+    const json_table_structure = json_data_structure[currentTable];
+    const columnDef = json_table_structure ? json_table_structure[property] : null;
+
+    if (o_currentData && typeof o_currentData === 'object' && property in o_currentData) {
+      o_currentData = o_currentData[property];
+
+      if (columnDef && columnDef.source) {
+        currentTable = columnDef.source;
+      }
+    } else {
+      return "";
+    }
+  }
+
+  // 4.A: If the value is a Blob, return it directly.
+  // It is a terminal value (like a string), but for images.
+  let test_isBlob = isBlob(o_currentData)
+  if (test_isBlob) {
+    return o_currentData;
+  }
+
+  // 4.B: If we landed on a Record (Object) that is NOT a Blob and NOT an Array
+  if (o_currentData !== null && typeof o_currentData === 'object' && !Array.isArray(o_currentData)) {
+    const keyColumnName = getKeyColumnForTable(json_data_structure, currentTable);
+
+    // Safety check: only return the key value if the property actually exists
+    return (keyColumnName && o_currentData[keyColumnName] !== undefined)
+      ? o_currentData[keyColumnName]
+      : "";
+  }
+
+  // 5: If it's a primitive (string/number) or an Array, return it directly
+  return o_currentData;
+}//function getDerefValueFromData(o_data, a_deref_columnNames, json_structure, startTable) {
+
+/**
+ * HELPERS
+ */
+
+function isBlob(obj) {
+  return (obj && typeof obj === 'object' && typeof obj.getBytes === 'function');
+}
+
+function formatValue(val) {
+  if (val === null || val === undefined) return "";
+  if (Array.isArray(val)) return val.join(", ");
+  return String(val);
+}
+
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
